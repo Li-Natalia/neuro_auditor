@@ -1,0 +1,12 @@
+# ===== Heavy AI/ML dependencies (optional) =====
+# Install only when enabling the LLM-powered chatbot:
+#   pip install -r requirements-ai.txt
+#
+# The app runs fully without these (rule-based chat fallback is used).
+
+torch==2.3.1
+transformers==4.41.2
+spacy==3.7.4
+scikit-learn==1.5.0
+numpy==1.26.4
+openai==1.35.1

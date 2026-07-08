@@ -1,0 +1,12 @@
+# Normalize line endings; let Git handle CRLF on Windows, LF in repo
+* text=auto eol=lf
+
+# Binary files — never normalize
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.xls binary
