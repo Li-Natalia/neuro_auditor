@@ -1,4 +1,6 @@
 """File validation helpers."""
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
@@ -29,6 +31,8 @@ def safe_storage_path(upload_dir: str, original_filename: str) -> Path:
     base.mkdir(parents=True, exist_ok=True)
     # Avoid path traversal and name collisions
     safe_name = Path(original_filename).name
-    timestamp = Path(original_filename).stem
-    unique = f"{timestamp}_{Path(safe_name).stem}_{id(safe_name)}{Path(safe_name).suffix}"
+    stem = Path(safe_name).stem
+    suffix = Path(safe_name).suffix
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    unique = f"{timestamp}_{stem}_{uuid.uuid4().hex}{suffix}"
     return base / unique

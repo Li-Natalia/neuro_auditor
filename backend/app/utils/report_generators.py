@@ -28,7 +28,14 @@ RISK_COLORS = {
 def generate_analysis_pdf(analysis: Any) -> bytes:
     """Generate a PDF report for an Analysis object/dict."""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, margins=15 * mm)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+    )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("Title2", parent=styles["Title"], textColor=colors.HexColor("#2563EB"))
     normal = styles["Normal"]

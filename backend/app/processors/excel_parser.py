@@ -74,8 +74,8 @@ def _find_sheets(xls: pd.ExcelFile) -> dict[str, pd.DataFrame | None]:
 
 def parse_workbook(file_path: str) -> dict:
     """Parse an Excel workbook into balance / income / cashflow dicts."""
-    xls = pd.ExcelFile(file_path, engine="openpyxl")
-    sheets = _find_sheets(xls)
+    with pd.ExcelFile(file_path, engine="openpyxl") as xls:
+        sheets = _find_sheets(xls)
 
     def _extract(df, keywords):
         # Promote first non-null column as the index for keyword lookup
@@ -106,15 +106,25 @@ def parse_workbook(file_path: str) -> dict:
     income = _extract(sheets["income"], INCOME_KEYWORDS)
     cashflow = _extract(sheets["cashflow"], CASHFLOW_KEYWORDS)
 
-    # Derived
-    balance.setdefault("nonCurrentAssets", max(balance.get("totalAssets", 0) - balance.get("currentAssets", 0), 0))
-    income.setdefault("grossProfit", max(income.get("revenue", 0) - income.get("costOfSales", 0), 0))
-    income.setdefault("operatingProfit", max(income.get("grossProfit", 0) - income.get("operatingExpenses", 0), 0))
-    cashflow.setdefault(
-        "netCashFlow",
-        cashflow.get("operatingCashFlow", 0)
-        + cashflow.get("investingCashFlow", 0)
-        + cashflow.get("financingCashFlow", 0),
-    )
+    # Derived: _extract always inserts every key (0.0 when the line item was
+    # not found), so derive from the other fields whenever the value is absent.
+    if not balance.get("nonCurrentAssets"):
+        balance["nonCurrentAssets"] = max(
+            balance.get("totalAssets", 0) - balance.get("currentAssets", 0), 0
+        )
+    if not income.get("grossProfit"):
+        income["grossProfit"] = max(
+            income.get("revenue", 0) - income.get("costOfSales", 0), 0
+        )
+    if not income.get("operatingProfit"):
+        income["operatingProfit"] = max(
+            income.get("grossProfit", 0) - income.get("operatingExpenses", 0), 0
+        )
+    if not cashflow.get("netCashFlow"):
+        cashflow["netCashFlow"] = (
+            cashflow.get("operatingCashFlow", 0)
+            + cashflow.get("investingCashFlow", 0)
+            + cashflow.get("financingCashFlow", 0)
+        )
 
     return {"balance": balance, "income": income, "cashflow": cashflow}

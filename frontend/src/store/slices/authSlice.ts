@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { authApi } from '../../api/authApi'
 import { clearTokens } from '../../api/client'
 import { STORAGE_KEYS } from '../../utils/constants'
+import { getErrorMessage } from '../../utils/helpers'
 import type { User } from '../../types/auth.types'
 import type { LoginFormData, RegisterFormData } from '../../utils/validators'
 
@@ -34,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, res.refreshToken)
           set({ user: res.user, isAuthenticated: true, isLoading: false })
         } catch (e) {
-          set({ isLoading: false, error: (e as Error).message })
+          set({ isLoading: false, error: getErrorMessage(e) })
           throw e
         }
       },
@@ -47,7 +48,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, res.refreshToken)
           set({ user: res.user, isAuthenticated: true, isLoading: false })
         } catch (e) {
-          set({ isLoading: false, error: (e as Error).message })
+          set({ isLoading: false, error: getErrorMessage(e) })
           throw e
         }
       },

@@ -17,7 +17,9 @@ class Analysis(Base, TimestampMixin):
     __tablename__ = "analyses"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), nullable=False)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
 
     balance_sheet: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     income_statement: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
@@ -27,5 +29,6 @@ class Analysis(Base, TimestampMixin):
 
     document: Mapped["Document"] = relationship("Document", back_populates="analysis")
     risks: Mapped[list["Risk"]] = relationship(
-        "Risk", back_populates="analysis", cascade="all, delete-orphan", lazy="selectin"
+        "Risk", back_populates="analysis", cascade="all, delete-orphan",
+        passive_deletes=True, lazy="selectin",
     )

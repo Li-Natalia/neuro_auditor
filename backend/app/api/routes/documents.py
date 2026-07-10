@@ -22,7 +22,14 @@ async def upload_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tmpl = DocumentTemplate(template)
+    try:
+        tmpl = DocumentTemplate(template)
+    except ValueError:
+        allowed = ", ".join(t.value for t in DocumentTemplate)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Некорректный шаблон '{template}'. Допустимые значения: {allowed}.",
+        )
     doc = await document_service.save_upload(db, file, tmpl, current_user)
     analysis_id = getattr(doc, "analysis_id", None)
     return UploadResponse(

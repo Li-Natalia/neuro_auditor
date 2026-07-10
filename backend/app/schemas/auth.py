@@ -48,7 +48,7 @@ class UserOut(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refreshToken: str
 
 
 class PasswordResetRequest(BaseModel):

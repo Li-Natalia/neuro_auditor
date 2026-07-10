@@ -76,8 +76,15 @@ def process_document_task(self, document_id: int):
             db.commit()
             return {"status": "completed", "analysis_id": analysis.id}
         except Exception as exc:  # noqa: BLE001
-            doc.status = DocumentStatus.failed
-            doc.error_message = str(exc)
-            doc.processing_progress = 0.0
-            db.commit()
+            # The failure may have left the transaction in a broken state; roll
+            # back before touching the session, then re-load the row to mark it
+            # failed (otherwise db.commit() would raise PendingRollbackError and
+            # the document would stay stuck in "processing").
+            db.rollback()
+            doc = db.get(Document, document_id)
+            if doc:
+                doc.status = DocumentStatus.failed
+                doc.error_message = str(exc)
+                doc.processing_progress = 0.0
+                db.commit()
             return {"status": "failed", "error": str(exc)}

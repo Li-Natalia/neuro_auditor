@@ -1,9 +1,12 @@
 """Document upload / retrieval business logic."""
 from __future__ import annotations
 
+import logging
+import os
+
 import aiofiles
 from fastapi import UploadFile
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -11,6 +14,8 @@ from app.models.document import Document, DocumentStatus, DocumentTemplate
 from app.models.user import User
 from app.services.analysis_service import process_document
 from app.utils.file_validators import safe_storage_path, validate_upload_file
+
+logger = logging.getLogger("fin-auditor")
 
 
 async def save_upload(
@@ -38,6 +43,9 @@ async def save_upload(
 
     # Kick off analysis (Celery if available, otherwise in-process sync).
     result = await process_document(doc.id, use_celery=not settings.APP_DEBUG)
+    # The sync path writes status/progress in a separate session; reload so the
+    # upload response reflects the real state instead of stale "uploaded"/0.0.
+    await db.refresh(doc)
     if isinstance(result, dict) and result.get("analysis_id"):
         doc.analysis_id = int(result["analysis_id"])
     return doc
@@ -65,5 +73,15 @@ async def delete_document(db: AsyncSession, document_id: int, user: User) -> boo
     doc = await get_document(db, document_id, user)
     if not doc:
         return False
-    await db.execute(delete(Document).where(Document.id == document_id))
+    file_path = doc.file_path
+    # ORM delete so cascade rules apply (analysis + risks go with the document,
+    # chat sessions are detached). A Core bulk delete would bypass them.
+    await db.delete(doc)
+    await db.commit()
+    # Best-effort file cleanup once the row is actually gone.
+    if file_path:
+        try:
+            os.remove(file_path)
+        except OSError:
+            logger.warning("Не удалось удалить файл документа %s", file_path)
     return True

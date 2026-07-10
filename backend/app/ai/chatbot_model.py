@@ -1,14 +1,21 @@
-"""Chatbot model: LLM-backed when OPENAI_API_KEY is set, otherwise a robust
+"""Chatbot model: LLM-backed when a provider is configured, otherwise a robust
 rule-based responder built from the document's financial data.
+
+Provider resolution (``AI_PROVIDER`` setting):
+- ``auto``  — YandexGPT if configured, else OpenAI if configured, else rule-based
+- ``yandex`` / ``openai`` / ``rule`` — force a specific backend
 """
 from __future__ import annotations
 
-import json
+import logging
 from typing import Any
 
 from app.ai.nlp_pipeline import detect_intent
-from app.ai.prompts import build_prompt
+from app.ai.prompts import build_system_prompt
+from app.ai.yandex_client import get_yandex_client, yandex_configured
 from app.core.config import settings
+
+logger = logging.getLogger("fin-auditor")
 
 _OPENAI_OK = False
 try:  # optional
@@ -96,22 +103,62 @@ def _rule_based_answer(question: str, context: dict | None) -> str:
     return " ".join(lines)
 
 
-def generate_answer(question: str, context: dict | None = None) -> str:
-    """Generate an answer, preferring the LLM when configured."""
+def _resolve_provider() -> str:
+    """Decide which backend to use for this request."""
+    provider = (settings.AI_PROVIDER or "auto").lower()
+    if provider in {"yandex", "openai", "rule"}:
+        return provider
+    # auto
+    if yandex_configured():
+        return "yandex"
     if _OPENAI_OK and settings.OPENAI_API_KEY:
+        return "openai"
+    return "rule"
+
+
+def _messages(question: str, context: dict | None) -> list[dict[str, str]]:
+    return [
+        {"role": "system", "content": build_system_prompt(context)},
+        {"role": "user", "content": question},
+    ]
+
+
+def _answer_with_yandex(question: str, context: dict | None) -> str:
+    client = get_yandex_client()
+    answer = client.chat(_messages(question, context))
+    return answer or _rule_based_answer(question, context)
+
+
+def _answer_with_openai(question: str, context: dict | None) -> str:
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    resp = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=_messages(question, context),
+        temperature=settings.AI_TEMPERATURE,
+    )
+    return (resp.choices[0].message.content or "").strip() or _rule_based_answer(question, context)
+
+
+def generate_answer(question: str, context: dict | None = None) -> str:
+    """Generate an answer, preferring the configured LLM provider.
+
+    Any provider error degrades gracefully to the rule-based responder so the
+    chat endpoint always returns something useful.
+    """
+    provider = _resolve_provider()
+
+    if provider == "yandex":
         try:
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            prompt = build_prompt(question, context or {})
-            resp = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": question},
-                ],
-                temperature=0.2,
-            )
-            return resp.choices[0].message.content or _rule_based_answer(question, context)
-        except Exception:
-            # Fallback to rule-based on any API error
+            return _answer_with_yandex(question, context)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("YandexGPT недоступен, использую резервный ответ: %s", exc)
             return _rule_based_answer(question, context)
+
+    if provider == "openai":
+        try:
+            return _answer_with_openai(question, context)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("OpenAI недоступен, использую резервный ответ: %s", exc)
+            return _rule_based_answer(question, context)
+
     return _rule_based_answer(question, context)

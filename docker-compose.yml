@@ -85,6 +85,9 @@ services:
       dockerfile: Dockerfile
     container_name: fin_auditor_frontend
     restart: unless-stopped
+    environment:
+      # Vite dev-server proxies /api to the backend service inside the compose network.
+      VITE_PROXY_TARGET: http://backend:8000
     depends_on:
       - backend
     ports:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,23 @@ from app.models.document import Document, DocumentStatus
 from app.models.risk import Risk, RiskLevel
 
 logger = logging.getLogger("fin-auditor")
+
+# Lazily-created shared synchronous engine, reused across sync-fallback runs so
+# we don't build (and leak) a fresh connection pool on every upload.
+_sync_engine = None
+
+
+def _get_sync_engine():
+    global _sync_engine
+    if _sync_engine is None:
+        from sqlalchemy import create_engine
+
+        from app.core.config import settings
+
+        _sync_engine = create_engine(
+            settings.DATABASE_URL_SYNC, pool_pre_ping=True, future=True
+        )
+    return _sync_engine
 
 
 async def list_analyses(db: AsyncSession, user) -> list[Analysis]:
@@ -81,15 +99,13 @@ async def process_document(document_id: int, use_celery: bool = True) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Celery unavailable, running analysis in-process: %s", exc)
 
-    # Sync fallback
-    return _process_document_sync(document_id)
+    # Sync fallback — offload the blocking DB + Excel work off the event loop.
+    return await run_in_threadpool(_process_document_sync, document_id)
 
 
 def _process_document_sync(document_id: int) -> dict:
-    from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
-    from app.core.config import settings
     from app.models.analysis import Analysis as AnalysisModel
     from app.models.document import Document as DocumentModel
     from app.models.risk import Risk as RiskModel
@@ -97,8 +113,7 @@ def _process_document_sync(document_id: int) -> dict:
     from app.processors.financial_analyzer import build_summary, compute_ratios
     from app.processors.risk_analyzer import detect_risks
 
-    engine = create_engine(settings.DATABASE_URL_SYNC, pool_pre_ping=True, future=True)
-    with Session(engine) as db:
+    with Session(_get_sync_engine()) as db:
         doc = db.get(DocumentModel, document_id)
         if not doc:
             return {"status": "not_found"}

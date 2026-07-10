@@ -46,5 +46,6 @@ class Document(Base, TimestampMixin):
 
     uploaded_by: Mapped["User"] = relationship("User", back_populates="documents")
     analysis: Mapped["Analysis | None"] = relationship(
-        "Analysis", back_populates="document", uselist=False, lazy="selectin"
+        "Analysis", back_populates="document", uselist=False,
+        cascade="all, delete-orphan", passive_deletes=True, lazy="selectin",
     )

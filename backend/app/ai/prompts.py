@@ -1,4 +1,5 @@
-"""Prompt templates for the LLM chatbot (used when OPENAI_API_KEY is set)."""
+"""Prompt templates for the LLM chatbot (Yandex GPT / OpenAI)."""
+from __future__ import annotations
 
 SYSTEM_PROMPT = """Ты — финансовый аудитор-ассистент Нейроаудитор.
 Отвечай на вопросы пользователя на русском языке, опираясь на предоставленные
@@ -14,5 +15,22 @@ CONTEXT_TEMPLATE = """
 """
 
 
+def build_system_prompt(context: dict | None) -> str:
+    """Compose the system prompt with the document context.
+
+    Missing context keys are tolerated (an empty document yields an empty
+    context block) so the LLM path never raises on incomplete data.
+    """
+    context = context or {}
+    context_block = CONTEXT_TEMPLATE.format(
+        balance=context.get("balance") or {},
+        income=context.get("income") or {},
+        ratios=context.get("ratios") or {},
+        risks=context.get("risks") or [],
+    )
+    return f"{SYSTEM_PROMPT}\n{context_block}"
+
+
 def build_prompt(question: str, context: dict) -> str:
-    return f"{SYSTEM_PROMPT}\n\n{CONTEXT_TEMPLATE.format(**context)}\n\nВопрос: {question}"
+    """Backwards-compatible single-string prompt (system + context + question)."""
+    return f"{build_system_prompt(context)}\n\nВопрос: {question}"
