@@ -17,6 +17,7 @@ export function DocumentContext({ documents, value, onChange }: Props) {
         fullWidth
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+        SelectProps={{ displayEmpty: true }}
         sx={{ mt: 0.5 }}
       >
         <MenuItem value="">Без контекста</MenuItem>

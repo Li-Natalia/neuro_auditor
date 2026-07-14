@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     SPACY_MODEL: str = "en_core_web_sm"
 
     # --- LLM chatbot provider ---
-    # auto: Yandex if configured, else OpenAI, else rule-based. Force with: yandex | openai | rule
+    # auto: Yandex if configured, else OpenAI, else "unavailable". Force with: yandex | openai
     AI_PROVIDER: str = "auto"
 
     # Yandex Cloud — YandexGPT via the OpenAI-compatible Foundation Models API

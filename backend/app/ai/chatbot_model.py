@@ -1,16 +1,13 @@
-"""Chatbot model: LLM-backed when a provider is configured, otherwise a robust
-rule-based responder built from the document's financial data.
+"""Chatbot model: answers via a configured LLM provider (YandexGPT or OpenAI).
 
-Provider resolution (``AI_PROVIDER`` setting):
-- ``auto``  — YandexGPT if configured, else OpenAI if configured, else rule-based
-- ``yandex`` / ``openai`` / ``rule`` — force a specific backend
+There is no offline fallback: if no provider is configured — or a request to the
+model fails — the chat returns a short message stating the neural model is
+unavailable. Provider selection is controlled by ``AI_PROVIDER`` (auto|yandex|openai).
 """
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from app.ai.nlp_pipeline import detect_intent
 from app.ai.prompts import build_system_prompt
 from app.ai.yandex_client import get_yandex_client, yandex_configured
 from app.core.config import settings
@@ -25,95 +22,30 @@ try:  # optional
 except Exception:  # pragma: no cover
     pass
 
-
-def _fmt(v: Any) -> str:
-    try:
-        return f"{float(v):,.0f}"
-    except (TypeError, ValueError):
-        return str(v)
-
-
-def _rule_based_answer(question: str, context: dict | None) -> str:
-    context = context or {}
-    balance = context.get("balance", {})
-    income = context.get("income", {})
-    ratios = context.get("ratios", {})
-    risks = context.get("risks", [])
-
-    if not (balance or income or ratios):
-        return (
-            "К сожалению, по выбранному документу нет данных анализа. "
-            "Загрузите отчёт и дождитесь завершения анализа, либо задайте вопрос без контекста."
-        )
-
-    intents = detect_intent(question)
-
-    lines: list[str] = []
-    if "revenue" in intents:
-        lines.append(f"Выручка: {_fmt(income.get('revenue'))}; чистая прибыль: {_fmt(income.get('netProfit'))}.")
-    if "profit" in intents:
-        lines.append(
-            f"Рентабельность: ROA {ratios.get('roa', 0)}%, ROE {ratios.get('roe', 0)}%, "
-            f"ROS {ratios.get('ros', 0)}%."
-        )
-    if "liquidity" in intents:
-        lines.append(
-            f"Ликвидность: текущая {ratios.get('currentRatio', 0)} (норма ≥1.5), "
-            f"быстрая {ratios.get('quickRatio', 0)} (норма ≥1.0)."
-        )
-    if "debt" in intents:
-        lines.append(
-            f"Долговая нагрузка: долг/капитал = {ratios.get('debtToEquity', 0)} (норма ≤1.0). "
-            f"Дебиторская задолженность: {_fmt(balance.get('accountsReceivable'))}."
-        )
-    if "assets" in intents:
-        lines.append(
-            f"Активы: всего {_fmt(balance.get('totalAssets'))} "
-            f"(оборотные {_fmt(balance.get('currentAssets'))}, внеоборотные {_fmt(balance.get('nonCurrentAssets'))}). "
-            f"Капитал: {_fmt(balance.get('equity'))}."
-        )
-    if "cashflow" in intents:
-        lines.append(
-            "Денежные потоки: операционный, инвестиционный, финансовый — "
-            f"см. раздел анализа."
-        )
-    if "risk" in intents or "general" in intents:
-        if risks:
-            counts = {"critical": 0, "medium": 0, "low": 0}
-            for r in risks:
-                lvl = r.get("level") if isinstance(r, dict) else r.level
-                if isinstance(lvl, str):
-                    pass
-                else:
-                    lvl = lvl.value
-                counts[lvl] = counts.get(lvl, 0) + 1
-            lines.append(
-                f"Риски: 🔴 критических {counts.get('critical', 0)}, "
-                f"🟡 средних {counts.get('medium', 0)}, 🟢 низких {counts.get('low', 0)}."
-            )
-        else:
-            lines.append("Существенных рисков по документу не выявлено.")
-
-    if not lines:
-        lines.append(
-            "Я могу ответить на вопросы о выручке, прибыли, ликвидности, долговой "
-            "нагрузке, активах и рисках по загруженному документу."
-        )
-
-    return " ".join(lines)
+# Returned to the chat when the neural model can't be used (no offline fallback).
+NOT_CONFIGURED_MESSAGE = (
+    "AI-чат-бот сейчас недоступен: не настроено подключение к нейросети. "
+    "Обратитесь к администратору, чтобы указать ключи языковой модели (YandexGPT)."
+)
+ERROR_MESSAGE = (
+    "Не удалось получить ответ от нейросети. Проверьте подключение к языковой "
+    "модели и повторите попытку позже."
+)
 
 
-def _resolve_provider() -> str:
-    """Decide which backend to use for this request."""
+def _resolve_provider() -> str | None:
+    """Return the LLM provider to use, or None if none is available."""
     provider = (settings.AI_PROVIDER or "auto").lower()
-    if provider in {"yandex", "openai", "rule"}:
-        return provider
+    if provider == "yandex":
+        return "yandex" if yandex_configured() else None
+    if provider == "openai":
+        return "openai" if (_OPENAI_OK and settings.OPENAI_API_KEY) else None
     # auto
     if yandex_configured():
         return "yandex"
     if _OPENAI_OK and settings.OPENAI_API_KEY:
         return "openai"
-    return "rule"
+    return None
 
 
 def _messages(question: str, context: dict | None) -> list[dict[str, str]]:
@@ -124,9 +56,7 @@ def _messages(question: str, context: dict | None) -> list[dict[str, str]]:
 
 
 def _answer_with_yandex(question: str, context: dict | None) -> str:
-    client = get_yandex_client()
-    answer = client.chat(_messages(question, context))
-    return answer or _rule_based_answer(question, context)
+    return get_yandex_client().chat(_messages(question, context))
 
 
 def _answer_with_openai(question: str, context: dict | None) -> str:
@@ -136,29 +66,22 @@ def _answer_with_openai(question: str, context: dict | None) -> str:
         messages=_messages(question, context),
         temperature=settings.AI_TEMPERATURE,
     )
-    return (resp.choices[0].message.content or "").strip() or _rule_based_answer(question, context)
+    return (resp.choices[0].message.content or "").strip()
 
 
 def generate_answer(question: str, context: dict | None = None) -> str:
-    """Generate an answer, preferring the configured LLM provider.
-
-    Any provider error degrades gracefully to the rule-based responder so the
-    chat endpoint always returns something useful.
-    """
+    """Answer via the configured LLM, or report that the neural model is unavailable."""
     provider = _resolve_provider()
+    if provider is None:
+        return NOT_CONFIGURED_MESSAGE
 
-    if provider == "yandex":
-        try:
-            return _answer_with_yandex(question, context)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("YandexGPT недоступен, использую резервный ответ: %s", exc)
-            return _rule_based_answer(question, context)
+    try:
+        if provider == "yandex":
+            answer = _answer_with_yandex(question, context)
+        else:
+            answer = _answer_with_openai(question, context)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Провайдер '%s' недоступен: %s", provider, exc)
+        return ERROR_MESSAGE
 
-    if provider == "openai":
-        try:
-            return _answer_with_openai(question, context)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("OpenAI недоступен, использую резервный ответ: %s", exc)
-            return _rule_based_answer(question, context)
-
-    return _rule_based_answer(question, context)
+    return answer or ERROR_MESSAGE

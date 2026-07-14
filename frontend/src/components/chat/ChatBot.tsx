@@ -10,11 +10,14 @@ import { useFileUpload } from '../../hooks/useFileUpload'
 
 export function ChatBot() {
   const chat = useChat()
-  const { documents } = useFileUpload()
+  const { documents, fetchDocuments } = useFileUpload()
   const [documentId, setDocumentId] = useState<number | undefined>(undefined)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Load documents too, so the context selector is populated on a direct
+    // refresh of /chat (they're otherwise fetched only on the upload page).
+    fetchDocuments()
     chat.fetchSessions()
     if (!chat.activeSession) chat.startNewSession()
   }, [])

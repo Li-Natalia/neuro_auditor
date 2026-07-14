@@ -29,8 +29,3 @@ def build_system_prompt(context: dict | None) -> str:
         risks=context.get("risks") or [],
     )
     return f"{SYSTEM_PROMPT}\n{context_block}"
-
-
-def build_prompt(question: str, context: dict) -> str:
-    """Backwards-compatible single-string prompt (system + context + question)."""
-    return f"{build_system_prompt(context)}\n\nВопрос: {question}"
