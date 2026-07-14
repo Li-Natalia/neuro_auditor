@@ -5,7 +5,6 @@ import MenuIcon from '@mui/icons-material/Menu'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import LogoutIcon from '@mui/icons-material/Logout'
-import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import { useThemeStore } from '../../../store/slices/uiSlice'
 import { useAuthStore } from '../../../store/slices/authSlice'
 import { APP_NAME } from '../../../utils/constants'
@@ -62,14 +61,6 @@ export function Header({ onMenuClick }: Props) {
           </IconButton>
         </Tooltip>
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-          <MenuItem
-            onClick={() => {
-              setAnchorEl(null)
-              navigate('/profile')
-            }}
-          >
-            <AccountCircleIcon fontSize="small" sx={{ mr: 1 }} /> Профиль
-          </MenuItem>
           <MenuItem
             onClick={() => {
               setAnchorEl(null)

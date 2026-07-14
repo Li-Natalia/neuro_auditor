@@ -24,12 +24,15 @@ class ChatSession(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False, default="Новая сессия")
-    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
 
     user: Mapped["User"] = relationship("User", back_populates="chat_sessions")
     messages: Mapped[List["ChatMessage"]] = relationship(
         "ChatMessage", back_populates="session",
-        cascade="all, delete-orphan", order_by="ChatMessage.created_at", lazy="selectin",
+        cascade="all, delete-orphan", passive_deletes=True,
+        order_by="ChatMessage.created_at", lazy="selectin",
     )
 
 
@@ -37,7 +40,9 @@ class ChatMessage(Base, TimestampMixin):
     __tablename__ = "chat_messages"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.id"), nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False
+    )
     role: Mapped[MessageRole] = mapped_column(SAEnum(MessageRole), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 

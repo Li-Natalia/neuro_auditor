@@ -1,0 +1,17 @@
+# Never copy host node_modules (native binaries differ from the Linux image)
+node_modules/
+dist/
+build/
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# VCS / editor / misc
+.git/
+.gitignore
+.idea/
+.vscode/
+*.log
+npm-debug.log*

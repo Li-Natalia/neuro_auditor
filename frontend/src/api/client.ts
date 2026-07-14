@@ -16,10 +16,15 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 })
 
 let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
+let refreshSubscribers: Array<(token: string | null, error?: unknown) => void> = []
 
 function onRefreshed(token: string) {
   refreshSubscribers.forEach((cb) => cb(token))
+  refreshSubscribers = []
+}
+
+function onRefreshFailed(error: unknown) {
+  refreshSubscribers.forEach((cb) => cb(null, error))
   refreshSubscribers = []
 }
 
@@ -36,8 +41,12 @@ apiClient.interceptors.response.use(
         return Promise.reject(error)
       }
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshSubscribers.push((token: string) => {
+        return new Promise((resolve, reject) => {
+          refreshSubscribers.push((token: string | null, err?: unknown) => {
+            if (!token) {
+              reject(err)
+              return
+            }
             originalRequest.headers.Authorization = `Bearer ${token}`
             resolve(apiClient(originalRequest))
           })
@@ -46,15 +55,16 @@ apiClient.interceptors.response.use(
       isRefreshing = true
       try {
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
+          refreshToken,
         })
-        const accessToken = data.access_token
+        const accessToken = data.accessToken
         localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
         apiClient.defaults.headers.Authorization = `Bearer ${accessToken}`
         onRefreshed(accessToken)
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return apiClient(originalRequest)
       } catch (e) {
+        onRefreshFailed(e)
         clearTokens()
         window.location.href = '/login'
         return Promise.reject(e)

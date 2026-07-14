@@ -23,6 +23,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { loginSchema, registerSchema, type LoginFormData, type RegisterFormData } from '../../utils/validators'
 import { palette } from '../../themes/tokens'
 import { APP_NAME } from '../../utils/constants'
+import { getErrorMessage } from '../../utils/helpers'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -56,7 +57,7 @@ export function LoginPage() {
       }
       navigate('/')
     } catch (e) {
-      setServerError((e as Error).message)
+      setServerError(getErrorMessage(e))
     }
   }
 

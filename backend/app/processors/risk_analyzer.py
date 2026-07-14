@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.models.risk import Risk, RiskLevel
-
 
 def _risk(level: str, title: str, description: str, recommendation: str, metric: str | None = None,
            value: float | None = None, threshold: float | None = None) -> dict:
@@ -29,39 +27,44 @@ def detect_risks(balance: dict[str, Any], income: dict[str, Any], ratios: dict[s
     roe = ratios.get("roe", 0)
     net_profit = float(income.get("netProfit", 0))
 
-    # Liquidity
-    if current_ratio and current_ratio < 1.0:
-        risks.append(
-            _risk(
-                "critical",
-                "Критическая ликвидность",
-                f"Текущая ликвидность {current_ratio:.2f} ниже 1.0 — оборотные активы не покрывают краткосрочные обязательства.",
-                "Срочно увеличьте оборотный капитал: ускорьте дебиторку, оптимизируйте запасы, реструктурируйте краткосрочный долг.",
-                "currentRatio", current_ratio, 1.5,
-            )
-        )
-    elif current_ratio and current_ratio < 1.5:
-        risks.append(
-            _risk(
-                "medium",
-                "Сниженная ликвидность",
-                f"Текущая ликвидность {current_ratio:.2f} ниже рекомендуемой нормы 1.5.",
-                "Проконтролируйте структуру оборотных активов и краткосрочных обязательств.",
-                "currentRatio", current_ratio, 1.5,
-            )
-        )
+    current_liab = float(balance.get("currentLiabilities", 0) or 0)
 
-    # Quick liquidity
-    if quick_ratio and quick_ratio < 0.8:
-        risks.append(
-            _risk(
-                "medium",
-                "Низкая быстрая ликвидность",
-                f"Быстрая ликвидность {quick_ratio:.2f} ниже 0.8 — зависимость от запасов для покрытия обязательств.",
-                "Сократите долю низколиквидных запасов в оборотных активах.",
-                "quickRatio", quick_ratio, 1.0,
+    # Liquidity — the ratios are only meaningful when there ARE current
+    # liabilities to cover. When there are, a ratio of 0 means zero current
+    # assets (the worst case), so it must NOT be skipped by a falsy check.
+    if current_liab > 0:
+        if current_ratio < 1.0:
+            risks.append(
+                _risk(
+                    "critical",
+                    "Критическая ликвидность",
+                    f"Текущая ликвидность {current_ratio:.2f} ниже 1.0 — оборотные активы не покрывают краткосрочные обязательства.",
+                    "Срочно увеличьте оборотный капитал: ускорьте дебиторку, оптимизируйте запасы, реструктурируйте краткосрочный долг.",
+                    "currentRatio", current_ratio, 1.0,
+                )
             )
-        )
+        elif current_ratio < 1.5:
+            risks.append(
+                _risk(
+                    "medium",
+                    "Сниженная ликвидность",
+                    f"Текущая ликвидность {current_ratio:.2f} ниже рекомендуемой нормы 1.5.",
+                    "Проконтролируйте структуру оборотных активов и краткосрочных обязательств.",
+                    "currentRatio", current_ratio, 1.5,
+                )
+            )
+
+        # Quick liquidity
+        if quick_ratio < 0.8:
+            risks.append(
+                _risk(
+                    "medium",
+                    "Низкая быстрая ликвидность",
+                    f"Быстрая ликвидность {quick_ratio:.2f} ниже 0.8 — зависимость от запасов для покрытия обязательств.",
+                    "Сократите долю низколиквидных запасов в оборотных активах.",
+                    "quickRatio", quick_ratio, 0.8,
+                )
+            )
 
     # Debt burden
     if debt_to_equity and debt_to_equity > 3.0:
@@ -71,7 +74,7 @@ def detect_risks(balance: dict[str, Any], income: dict[str, Any], ratios: dict[s
                 "Высокая долговая нагрузка",
                 f"Долг/капитал = {debt_to_equity:.2f}, что значительно превышает 1.0 — риск неплатёжеспособности.",
                 "Разработайте план снижения долговой нагрузки, пересмотрите структуру финансирования.",
-                "debtToEquity", debt_to_equity, 1.0,
+                "debtToEquity", debt_to_equity, 3.0,
             )
         )
     elif debt_to_equity and debt_to_equity > 1.0:

@@ -22,7 +22,9 @@ class Risk(Base, TimestampMixin):
     __tablename__ = "risks"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    analysis_id: Mapped[int] = mapped_column(ForeignKey("analyses.id"), nullable=False)
+    analysis_id: Mapped[int] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False
+    )
     level: Mapped[RiskLevel] = mapped_column(Enum(RiskLevel), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)

@@ -34,3 +34,9 @@ celery==5.4.0
 
 # ===== PDF generation =====
 reportlab==4.1.0
+
+# ===== LLM chatbot (YandexGPT via OpenAI-compatible API) =====
+# Light client only — the heavy local ML stack stays in requirements-ai.txt.
+# 2.x is required for compatibility with httpx>=0.28 (older 1.x passes the
+# removed `proxies` kwarg and crashes the client at construction).
+openai==2.20.0

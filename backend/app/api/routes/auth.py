@@ -1,9 +1,11 @@
 """Authentication routes."""
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
+from app.core.security import decode_token
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
@@ -48,13 +50,30 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(**tokens, user=_user_out(user))
 
 
-@router.post("/refresh")
-async def refresh_token(data: RefreshRequest):
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    payload = decode_token(data.refreshToken)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh-токен",
+        )
     try:
-        access_token = auth_service.refresh_access_token(data.refresh_token)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    return {"access_token": access_token}
+        user_id = int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh-токен",
+        )
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный refresh-токен",
+        )
+    tokens = auth_service.issue_tokens(user)
+    return TokenResponse(**tokens, user=_user_out(user))
 
 
 @router.get("/me", response_model=UserOut)

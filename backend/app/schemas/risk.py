@@ -1,4 +1,4 @@
 """Risk Pydantic schemas (re-exported from analysis for convenience)."""
-from app.schemas.analysis import RiskSchema
+from app.schemas.analysis import RiskOut
 
-__all__ = ["RiskSchema"]
+__all__ = ["RiskOut"]

@@ -12,6 +12,8 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 os.environ.setdefault("CELERY_BROKER_URL", "memory://")
 os.environ.setdefault("CELERY_RESULT_BACKEND", "cache+memory://")
 os.environ.setdefault("SECRET_KEY", "test-secret")
+# Don't run Alembic migrations (Postgres-specific) against the sqlite test DB.
+os.environ.setdefault("RUN_MIGRATIONS_ON_STARTUP", "false")
 
 
 @pytest.fixture(scope="session")

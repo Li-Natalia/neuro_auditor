@@ -88,7 +88,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       set((s) => ({
         activeSession: s.activeSession
-          ? { ...s.activeSession, messages: [...s.activeSession.messages, assistantMsg] }
+          ? {
+              ...s.activeSession,
+              id: res.sessionId || s.activeSession.id,
+              messages: [...s.activeSession.messages, assistantMsg],
+            }
           : s.activeSession,
         isStreaming: false,
       }))

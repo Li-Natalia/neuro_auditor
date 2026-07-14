@@ -2,8 +2,11 @@
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Committed default — must never be used in production.
+INSECURE_DEFAULT_SECRET = "change-me-to-a-long-random-secret-key-in-production"
 
 
 class Settings(BaseSettings):
@@ -19,6 +22,9 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
     APP_API_PREFIX: str = "/api"
+
+    # Run `alembic upgrade head` on application startup (disabled in tests).
+    RUN_MIGRATIONS_ON_STARTUP: bool = True
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://finauditor:finauditor@localhost:5432/finauditor"
@@ -44,7 +50,25 @@ class Settings(BaseSettings):
     # AI / NLP
     CHATBOT_MODEL_ID: str = "distilbert-base-uncased"
     SPACY_MODEL: str = "en_core_web_sm"
+
+    # --- LLM chatbot provider ---
+    # auto: Yandex if configured, else OpenAI, else "unavailable". Force with: yandex | openai
+    AI_PROVIDER: str = "auto"
+
+    # Yandex Cloud — YandexGPT via the OpenAI-compatible Foundation Models API
+    AI_BASE_URL: str = "https://llm.api.cloud.yandex.net/v1"
+    AI_YC_API_KEY: str = ""
+    AI_YC_FOLDER_ID: str = ""
+    # Model name inside the folder; composed into gpt://<folder>/<model> (or pass a full gpt:// URI)
+    AI_MODEL: str = "yandexgpt/latest"
+
+    # OpenAI — fallback / alternative provider
     OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # Shared generation parameters
+    AI_TEMPERATURE: float = 0.2
+    AI_MAX_TOKENS: int = 2000
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
@@ -53,6 +77,21 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors(cls, v: str) -> str:
         return v
+
+    @model_validator(mode="after")
+    def _guard_production_secret(self) -> "Settings":
+        """Refuse to boot in production with a weak/default JWT secret."""
+        if self.APP_ENV == "production":
+            if (
+                not self.SECRET_KEY
+                or self.SECRET_KEY == INSECURE_DEFAULT_SECRET
+                or len(self.SECRET_KEY) < 32
+            ):
+                raise ValueError(
+                    "SECRET_KEY должен быть задан в production: не менее 32 символов и не "
+                    "равен значению по умолчанию. Установите переменную окружения SECRET_KEY."
+                )
+        return self
 
     @property
     def cors_origins_list(self) -> List[str]:
