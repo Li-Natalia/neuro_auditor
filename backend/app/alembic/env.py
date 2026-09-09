@@ -20,8 +20,12 @@ import app.models  # noqa: F401, E402  (register models on Base.metadata)
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# Logging from alembic.ini is only for the CLI (`alembic upgrade head`). When the app runs
+# migrations at startup it already has its own logging configured and passes
+# ``configure_logger=False``: otherwise fileConfig() would replace the root handlers and
+# silence every logger created before it (the app's, uvicorn's).
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

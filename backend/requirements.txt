@@ -10,7 +10,7 @@ psycopg2-binary==2.9.9
 alembic==1.13.2
 
 # ===== Settings / validation =====
-pydantic==2.8.2
+pydantic==2.11.7
 pydantic-settings==2.4.0
 python-dotenv==1.0.1
 
@@ -35,8 +35,7 @@ celery==5.4.0
 # ===== PDF generation =====
 reportlab==4.1.0
 
-# ===== LLM chatbot (YandexGPT via OpenAI-compatible API) =====
-# Light client only — the heavy local ML stack stays in requirements-ai.txt.
+# ===== LLM chatbot — Yandex AI Studio via the OpenAI SDK (Responses API) =====
 # 2.x is required for compatibility with httpx>=0.28 (older 1.x passes the
 # removed `proxies` kwarg and crashes the client at construction).
 openai==2.20.0

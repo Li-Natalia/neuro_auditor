@@ -39,9 +39,17 @@ def compute_ratios(balance: dict[str, Any], income: dict[str, Any]) -> dict[str,
     }
 
 
-def build_summary(balance: dict, income: dict, ratios: dict) -> str:
-    """Compose a short textual summary of the financial state."""
+def build_summary(
+    balance: dict, income: dict, ratios: dict, period: str | None = None
+) -> str:
+    """Compose a short textual summary of the financial state.
+
+    ``period`` is the reporting-period label detected by the Excel parser
+    (e.g. ``"на 31.12.2025"``); when given it prefixes the summary.
+    """
     parts: list[str] = []
+    if period:
+        parts.append(f"Отчётный период: {period}.")
     parts.append(
         f"Выручка составила {income.get('revenue', 0):,.0f}, чистая прибыль — "
         f"{income.get('netProfit', 0):,.0f}."

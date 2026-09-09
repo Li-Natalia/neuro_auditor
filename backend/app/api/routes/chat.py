@@ -1,14 +1,42 @@
 """Chat routes."""
+import mimetypes
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.yandex_client import code_interpreter_enabled
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.chat import ChatRequest, ChatResponse, ChatSessionOut, session_to_out
+from app.schemas.chat import (
+    ChatCapabilities,
+    ChatRequest,
+    ChatResponse,
+    ChatSessionOut,
+    session_to_out,
+)
 from app.services import chat_service
+from app.utils.http import content_disposition
 
 router = APIRouter()
+
+
+@router.get("/artifacts/{file_id}")
+async def download_artifact(
+    file_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download a file produced by Code Interpreter (only for the owner of the chat session)."""
+    data, filename = await chat_service.download_artifact(db, file_id, current_user)
+    media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    return StreamingResponse(
+        BytesIO(data),
+        media_type=media_type,
+        headers={"Content-Disposition": content_disposition(filename)},
+    )
 
 
 @router.post("", response_model=ChatResponse)
@@ -17,8 +45,16 @@ async def chat(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await chat_service.ask(db, current_user, data.message, data.documentId, data.sessionId)
+    result = await chat_service.ask(
+        db, current_user, data.message, data.documentId, data.sessionId, mode=data.mode
+    )
     return ChatResponse(**result)
+
+
+@router.get("/capabilities", response_model=ChatCapabilities)
+async def capabilities(current_user: User = Depends(get_current_user)):
+    """Which optional chat modes the server has enabled (drives the UI toggle)."""
+    return ChatCapabilities(codeInterpreter=code_interpreter_enabled())
 
 
 @router.get("/sessions", response_model=list[ChatSessionOut])

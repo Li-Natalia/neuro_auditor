@@ -47,28 +47,23 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 20
     ALLOWED_EXTENSIONS: str = "xlsx,xls"
 
-    # AI / NLP
-    CHATBOT_MODEL_ID: str = "distilbert-base-uncased"
-    SPACY_MODEL: str = "en_core_web_sm"
-
-    # --- LLM chatbot provider ---
-    # auto: Yandex if configured, else OpenAI, else "unavailable". Force with: yandex | openai
-    AI_PROVIDER: str = "auto"
-
-    # Yandex Cloud — YandexGPT via the OpenAI-compatible Foundation Models API
-    AI_BASE_URL: str = "https://llm.api.cloud.yandex.net/v1"
+    # --- Yandex AI Studio: YandexGPT via the OpenAI SDK (Responses API) ---
+    AI_BASE_URL: str = "https://ai.api.cloud.yandex.net/v1"
     AI_YC_API_KEY: str = ""
     AI_YC_FOLDER_ID: str = ""
     # Model name inside the folder; composed into gpt://<folder>/<model> (or pass a full gpt:// URI)
     AI_MODEL: str = "yandexgpt/latest"
-
-    # OpenAI — fallback / alternative provider
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-
-    # Shared generation parameters
     AI_TEMPERATURE: float = 0.2
-    AI_MAX_TOKENS: int = 2000
+    AI_MAX_TOKENS: int = 2000  # mapped to Responses API `max_output_tokens`
+    AI_TIMEOUT_SECONDS: float = 60
+
+    # Code Interpreter chat mode (Files API + Responses API tool). Off by default in code;
+    # .env.example enables it and points AI_CI_MODEL at a model known to support the tool.
+    AI_CODE_INTERPRETER_ENABLED: bool = False
+    AI_CI_MODEL: str = ""  # empty -> AI_MODEL
+    AI_CI_FILE_PURPOSE: str = "user_data"
+    # Code Interpreter answers take 1–3 minutes (Qwen + several code executions)
+    AI_CI_TIMEOUT_SECONDS: float = 300
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"

@@ -34,3 +34,14 @@ def test_build_summary_contains_key_figures():
     summary = build_summary(balance, income, ratios)
     assert "1,000" in summary
     assert "ROA" in summary
+
+
+def test_build_summary_prefixes_reporting_period():
+    balance = {"currentAssets": 0, "currentLiabilities": 0, "totalAssets": 0, "equity": 0, "totalLiabilities": 0}
+    income = {"revenue": 1000, "netProfit": 100, "operatingProfit": 150}
+    ratios = {"currentRatio": 1.5, "quickRatio": 1.0, "roa": 10, "roe": 20, "ros": 15}
+    summary = build_summary(balance, income, ratios, period="2025")
+    assert summary.startswith("Отчётный период: 2025")
+    assert "1,000" in summary
+    # Without a period the summary is unchanged.
+    assert not build_summary(balance, income, ratios).startswith("Отчётный период")

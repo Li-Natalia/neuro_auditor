@@ -19,8 +19,16 @@ export function ChatBot() {
     // refresh of /chat (they're otherwise fetched only on the upload page).
     fetchDocuments()
     chat.fetchSessions()
+    chat.fetchCapabilities()
     if (!chat.activeSession) chat.startNewSession()
   }, [])
+
+  // "Расчёт по файлу" needs a document, so drop back to auto as soon as the
+  // selection is cleared.
+  const { mode, setMode } = chat
+  useEffect(() => {
+    if (documentId === undefined && mode === 'code_interpreter') setMode('auto')
+  }, [documentId, mode, setMode])
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -44,12 +52,20 @@ export function ChatBot() {
           </Button>
         </Box>
 
-        <DocumentContext documents={documents} value={documentId} onChange={setDocumentId} />
+        <DocumentContext
+          documents={documents}
+          value={documentId}
+          onChange={setDocumentId}
+          mode={mode}
+          onModeChange={setMode}
+          codeInterpreterAvailable={chat.codeInterpreterAvailable}
+        />
         <Divider />
 
         <MessageList
           messages={chat.activeSession?.messages ?? []}
           isStreaming={chat.isStreaming}
+          onDownloadArtifact={chat.downloadArtifact}
         />
 
         {chat.activeSession && chat.activeSession.messages.length === 0 && (

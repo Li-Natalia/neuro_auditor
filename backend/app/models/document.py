@@ -41,6 +41,9 @@ class Document(Base, TimestampMixin):
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     processing_progress: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Yandex Files API id of the uploaded workbook (Code Interpreter chat mode);
+    # uploaded once per document and reused across questions.
+    yc_file_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     uploaded_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 

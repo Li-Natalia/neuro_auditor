@@ -25,6 +25,8 @@ def run_migrations() -> None:
         raise FileNotFoundError(f"Не найден alembic.ini: {_ALEMBIC_INI}")
 
     cfg = Config(str(_ALEMBIC_INI))
+    # Keep the application's logging setup: env.py skips fileConfig(alembic.ini) for us.
+    cfg.attributes["configure_logger"] = False
     logger.info("Применение миграций Alembic (upgrade head)...")
     command.upgrade(cfg, "head")
     logger.info("Миграции Alembic применены.")

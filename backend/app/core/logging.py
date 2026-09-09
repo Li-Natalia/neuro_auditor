@@ -17,6 +17,11 @@ def setup_logging() -> None:
     # Quiet noisy libs
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING if not settings.APP_DEBUG else logging.INFO)
+    # The OpenAI SDK (Yandex AI Studio client) dumps full request bodies at DEBUG — the
+    # HTTP line from httpx at INFO ("POST https://ai.api.cloud.yandex.net/... 200") is enough.
+    logging.getLogger("openai").setLevel(logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.INFO)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 logger = logging.getLogger(settings.APP_NAME)
