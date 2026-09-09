@@ -6,9 +6,11 @@ import os
 
 import aiofiles
 from fastapi import UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.yandex_client import get_yandex_client, yandex_configured
 from app.core.config import settings
 from app.models.document import Document, DocumentStatus, DocumentTemplate
 from app.models.user import User
@@ -74,14 +76,17 @@ async def delete_document(db: AsyncSession, document_id: int, user: User) -> boo
     if not doc:
         return False
     file_path = doc.file_path
+    yc_file_id = doc.yc_file_id
     # ORM delete so cascade rules apply (analysis + risks go with the document,
     # chat sessions are detached). A Core bulk delete would bypass them.
     await db.delete(doc)
     await db.commit()
-    # Best-effort file cleanup once the row is actually gone.
+    # Best-effort cleanup once the row is actually gone: local file + Yandex Files API copy.
     if file_path:
         try:
             os.remove(file_path)
         except OSError:
             logger.warning("Не удалось удалить файл документа %s", file_path)
+    if yc_file_id and yandex_configured():
+        await run_in_threadpool(get_yandex_client().delete_file, yc_file_id)
     return True

@@ -23,6 +23,8 @@ export const ENDPOINTS = {
 
   // chat
   chat: '/chat',
+  chatCapabilities: '/chat/capabilities',
   chatSessions: '/chat/sessions',
   chatSession: (id: string) => `/chat/sessions/${id}`,
+  chatArtifact: (fileId: string) => `/chat/artifacts/${encodeURIComponent(fileId)}`,
 } as const
