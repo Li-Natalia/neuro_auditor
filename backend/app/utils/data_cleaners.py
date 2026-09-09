@@ -60,15 +60,3 @@ def to_float(value: Any) -> float:
 
 def clean_numeric_dict(data: dict[str, Any], keys: list[str]) -> dict[str, float]:
     return {k: to_float(data.get(k)) for k in keys}
-
-
-def find_row(df, keywords: list[str]):
-    """Return the first row Series whose index label contains any keyword."""
-    if df is None or df.empty:
-        return None
-    labels = [str(idx).lower() for idx in df.index]
-    for kw in keywords:
-        for i, label in enumerate(labels):
-            if kw.lower() in label:
-                return df.iloc[i]
-    return None

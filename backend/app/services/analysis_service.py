@@ -124,7 +124,12 @@ def _process_document_sync(document_id: int) -> dict:
             parsed = parse_workbook(doc.file_path)
             ratios = compute_ratios(parsed["balance"], parsed["income"])
             risks_data = detect_risks(parsed["balance"], parsed["income"], ratios)
-            summary = build_summary(parsed["balance"], parsed["income"], ratios)
+            summary = build_summary(
+                parsed["balance"],
+                parsed["income"],
+                ratios,
+                period=parsed.get("meta", {}).get("period"),
+            )
 
             analysis = AnalysisModel(
                 document_id=doc.id,

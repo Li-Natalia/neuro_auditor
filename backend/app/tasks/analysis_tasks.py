@@ -43,7 +43,12 @@ def process_document_task(self, document_id: int):
 
             ratios = compute_ratios(parsed["balance"], parsed["income"])
             risks_data = detect_risks(parsed["balance"], parsed["income"], ratios)
-            summary = build_summary(parsed["balance"], parsed["income"], ratios)
+            summary = build_summary(
+                parsed["balance"],
+                parsed["income"],
+                ratios,
+                period=parsed.get("meta", {}).get("period"),
+            )
 
             analysis = Analysis(
                 document_id=doc.id,
