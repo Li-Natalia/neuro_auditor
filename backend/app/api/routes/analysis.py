@@ -2,6 +2,7 @@
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies.auth import get_current_user
@@ -42,7 +43,7 @@ async def download_report(
     a = await analysis_service.get_analysis_by_id(db, analysis_id, current_user)
     if not a:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Анализ не найден")
-    pdf_bytes = generate_analysis_pdf(a)
+    pdf_bytes = await run_in_threadpool(generate_analysis_pdf, a)
     return StreamingResponse(
         BytesIO(pdf_bytes),
         media_type="application/pdf",
